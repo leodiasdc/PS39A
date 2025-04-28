@@ -1,0 +1,160 @@
+{
+  "name": "PS39A",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "/consumo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        40,
+        0
+      ],
+      "id": "74b1a242-2f8b-4e57-b368-9016ce10aa26",
+      "name": "Webhook",
+      "webhookId": "365c8839-b3d9-4501-9068-fbfea61fda77",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    c.nome,\n    AVG(l.kwh) AS media_kwh\nFROM clientes c\nJOIN contratos ct ON c.id = ct.cliente_id\nJOIN leituras l ON ct.id = l.contrato_id\nWHERE ct.ativo = true\n  AND l.data_leitura >= (CURRENT_DATE - INTERVAL '3 months')\nGROUP BY c.nome;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        280,
+        0
+      ],
+      "id": "c9d6b250-16c7-4aec-858a-c4010c4d45cc",
+      "name": "Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "2fOO8wn2sQEf9kcv",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const consumos = items\n  .map(item => parseFloat(item.json.media_kwh)) // Converte para número\n  .filter(valor => !isNaN(valor)); // Filtra valores não numéricos\n\n// Calcula a média geral de forma segura\nconst mediaGeral = consumos.reduce((acc, val) => acc + val, 0) / consumos.length;\n\nreturn items.map(item => {\n  const mediaCliente = item.json.media_kwh;\n  const isOutlier = Math.abs(mediaCliente - mediaGeral) > (0.25 * mediaGeral);\n\n  return {\n    json: {\n      nome: item.json.nome,\n      media_kwh: mediaCliente,\n      mediaGeral: mediaGeral,\n      status: isOutlier ? 'outlier' : 'normal'\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ],
+      "id": "7a7fa411-3870-4311-838d-22ada290ed00",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "c15c8aa2-60b8-400a-9030-c0cbae08e31a",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Faça um resumo detalhado sobre cada uma das médias anteriores, explicando qual cliente está fora do normal ou não.\nContexto:\n{{JSON.stringify($node[('Respond to Webhook')].json)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        920,
+        0
+      ],
+      "id": "f33c0229-a8e0-4c22-9eca-ad0a024ba5a0",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "szjtHgPEGnMCoAFi",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "40365e3b-d688-433b-b86e-28b3c5992190",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a2f6772d7baa4e842e47e224edeb8f054f232fe90c00339dffc7fa30906cd2e8"
+  },
+  "id": "UM9KVgbNtL2pE5Sz",
+  "tags": []
+}

@@ -1,0 +1,22 @@
+const consumos = items
+  .map(item => parseFloat(item.json.media_kwh)) // Converte para número
+  .filter(valor => !isNaN(valor)); // Filtra valores não numéricos
+
+// Calcula a média geral de forma segura
+const mediaGeral = consumos.reduce((acc, val) => acc + val, 0) / consumos.length;
+
+return items.map(item => {
+  const mediaCliente = item.json.media_kwh;
+  const isOutlier = Math.abs(mediaCliente - mediaGeral) > (0.25 * mediaGeral);
+  // Verifica se o valor é um outlier (fora do intervalo de 25% da média geral)
+  
+  return {
+    json: {
+      nome: item.json.nome,
+      media_kwh: mediaCliente,
+      mediaGeral: mediaGeral,
+      status: isOutlier ? 'outlier' : 'normal'
+    }
+  };
+});
+//       },
